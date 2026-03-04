@@ -263,18 +263,21 @@ class RunningQuantile:
         return self.randbits[self.currentbit]
 
     def state_dict(self):
-        return dict(
+        result = dict(
                 constructor=self.__module__ + '.' +
                     self.__class__.__name__ + '()',
                 resolution=self.resolution,
                 depth=self.depth,
                 buffersize=self.buffersize,
                 samplerate=self.samplerate,
-                data=[d.cpu().numpy()[:,:f].T
-                    for d, f in zip(self.data, self.firstfree)],
-                sizes=[d.shape[1] for d in self.data],
+                # data=[d.cpu().numpy()[:,:f].T
+                #     for d, f in zip(self.data, self.firstfree)],
+                sizes=numpy.array([d.shape[1] for d in self.data]),
                 extremes=self.extremes.cpu().numpy(),
                 size=self.size)
+        for i, (d, f) in enumerate(zip(self.data, self.firstfree)):
+            result['data.%d' % i] = d.cpu().numpy()[:,:f].T
+        return result
 
     def set_state_dict(self, dic):
         self.resolution = int(dic['resolution'])
@@ -285,9 +288,11 @@ class RunningQuantile:
         self.samplerate = float(dic['samplerate'])
         firstfree = []
         buffers = []
-        for d, s in zip(dic['data'], dic['sizes']):
+        sizes = dic['sizes']
+        for i, s in enumerate(sizes):
+            d = dic['data.%d' % i]
             firstfree.append(d.shape[0])
-            buf = numpy.zeros((d.shape[1], s), dtype=d.dtype)
+            buf = numpy.zeros((self.depth, s), dtype=d.dtype)
             buf[:,:d.shape[0]] = d.T
             buffers.append(torch.from_numpy(buf))
         self.firstfree = firstfree
@@ -537,25 +542,55 @@ class RunningConditionalQuantile:
 
     def state_dict(self):
         conditions = sorted(self.running_quantiles.keys())
+        # Convert conditions to a numpy array of strings to be savez-compatible
+        # Tuples like ('label', 1) become 'label.1'
+        cond_strings = ['.'.join(str(x) for x in c) for c in conditions]
+        cond_array = numpy.array(cond_strings)
         result = dict(
                 constructor=self.__module__ + '.' +
                     self.__class__.__name__ + '()',
-                rq_args=self.rq_args,
-                conditions=conditions)
+                conditions=cond_array)
+        # Add rq_args as individual items to avoid inhomogeneous shapes
+        for k, v in self.rq_args.items():
+            result['rq_args.' + k] = numpy.array(v) if v is not None else numpy.array(None)
         for i, c in enumerate(conditions):
-            result.update({
-                '%d.%s' % (i, k): v
-                for k, v in self.running_quantiles[c].state_dict().items()})
+            for k, v in self.running_quantiles[c].state_dict().items():
+                result['%d.%s' % (i, k)] = v
         return result
 
     def set_state_dict(self, dic):
-        self.rq_args = dic['rq_args'].item()
-        conditions = list(dic['conditions'])
+        # Reconstruct rq_args
+        self.rq_args = {}
+        for k in dic.keys():
+            if k.startswith('rq_args.'):
+                val = dic[k].item()
+                self.rq_args[k[len('rq_args.'):]] = val
+        
+        # conditions might be a numpy array of strings
+        cond_data = dic['conditions']
+        if hasattr(cond_data, 'tolist'):
+            cond_strings = cond_data.tolist()
+        else:
+            cond_strings = list(cond_data)
+        
+        # Reconstruct tuples from strings
+        conditions = []
+        for s in cond_strings:
+            parts = s.split('.')
+            if parts[0] == 'all':
+                conditions.append(('all',))
+            elif parts[0] in ['label', 'cat'] and len(parts) > 1:
+                conditions.append((parts[0], int(parts[1])))
+            else:
+                conditions.append(tuple(parts))
+            
         subdicts = defaultdict(dict)
         for k, v in dic.items():
             if '.' in k:
-                p, s = k.split('.', 1)
-                subdicts[p][s] = v
+                parts = k.split('.')
+                if parts[0].isdigit():
+                    p, s = parts[0], '.'.join(parts[1:])
+                    subdicts[p][s] = v
         self.running_quantiles = {
                 c: RunningQuantile(state=subdicts[str(i)])
                 for i, c in enumerate(conditions)}

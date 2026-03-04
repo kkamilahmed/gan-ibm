@@ -18,7 +18,8 @@ class DissectionProject:
     '''
     def __init__(self, config, project_dir, path_url, public_host):
         print('config done', project_dir)
-        self.use_cuda = torch.cuda.is_available()
+        from netdissect.deviceutil import get_device
+        self.use_device = get_device()
         self.dissect = config
         self.project_dir = project_dir
         self.path_url = path_url
@@ -26,8 +27,7 @@ class DissectionProject:
         self.cachedir = os.path.join(self.project_dir, 'cache')
         self.tester = GanTester(
                 config.settings, dissectdir=project_dir,
-                device=torch.device('cuda') if self.use_cuda
-                     else torch.device('cpu'))
+                device=self.use_device)
         self.stdz = []
 
     def get_zs(self, size):

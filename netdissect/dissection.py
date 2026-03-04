@@ -552,7 +552,10 @@ def generate_images(outdir, model, dataset, topk, levels,
                         fill=255)
                     for depth in [3, 4, 3, 3]]
             # Pass those mmaps to worker processes.
+            # On Darwin, multiprocessing is slow/broken for this, so use serial.
+            import sys
             pool = WorkerPool(worker=VisualizeImageWorker,
+                    process_count=(0 if sys.platform == 'darwin' else None),
                     memmap_grid_info=[
                         {layer: (g.filename, g.shape, g.dtype)
                             for layer, g in grid.items()}
@@ -573,7 +576,9 @@ def generate_images(outdir, model, dataset, topk, levels,
                         numpy_seg[index])
     pool.join()
     # Pass 3: save image strips as [outdir]/[layer]/[unitnum]-[top/orig].jpg
-    pool = WorkerPool(worker=SaveImageWorker)
+    import sys
+    pool = WorkerPool(worker=SaveImageWorker,
+            process_count=(0 if sys.platform == 'darwin' else None))
     for layer, vg in progress(vizgrid.items(), desc='Saving images'):
         os.makedirs(os.path.join(outdir, safe_dir_name(layer),
             prefix + 'image'), exist_ok=True)
@@ -664,13 +669,13 @@ def score_tally_stats(label_category, tc, truth, cc, ic):
     truth = truth[:, None]
     epsilon = 1e-20 # avoid division-by-zero
     union = pred + truth - ic
-    iou = ic.double() / (union.double() + epsilon)
+    iou = ic.float() / (union.float() + epsilon)
     arr = torch.empty(size=(2, 2) + ic.shape, dtype=ic.dtype, device=ic.device)
     arr[0, 0] = ic
     arr[0, 1] = pred - ic
     arr[1, 0] = truth - ic
     arr[1, 1] = total - union
-    arr = arr.double() / total.double()
+    arr = arr.float() / total.float()
     mi = mutual_information(arr)
     je = joint_entropy(arr)
     iqr = mi / je
@@ -828,8 +833,10 @@ def collect_bincounts(outdir, model, segloader, levels, segrunner):
                         scale_offset=scale_offset_map.get(key, None)
                             if scale_offset_map is not None else None,
                         dtype=value.dtype, device=value.device)
+            # MPS workaround: 'border' padding is not supported on MPS for grid_sample.
+            padding_mode = 'zeros' if value.device.type == 'mps' else 'border'
             upsampled = torch.nn.functional.grid_sample(value,
-                    upsample_grids[key], padding_mode='border')
+                    upsample_grids[key], padding_mode=padding_mode)
             amask = (upsampled > levels[key][None,:,None,None].to(
                 upsampled.device))
             ac = amask.int().view(amask.shape[1], -1).sum(1)
@@ -889,8 +896,8 @@ def collect_cond_quantiles(outdir, model, segloader, segrunner):
                 safe_dir_name(layer)), 'cond_quantiles.npz') # on cpu
             for layer in model.retained_features() }
     label_fracs = load_npy_if_present(outdir, 'label_fracs.npy', 'cpu')
-    if label_fracs is not None and all(
-            value is not None for value in cached_cond_quantiles.values()):
+    if (label_fracs is not None and not (isinstance(label_fracs, int) and label_fracs == 0) and all(
+            value is not None for value in cached_cond_quantiles.values())):
         return cached_cond_quantiles, label_fracs
 
     labelcat, categories = segrunner.get_label_and_category_names()
@@ -912,7 +919,7 @@ def collect_cond_quantiles(outdir, model, segloader, segrunner):
     scale_offset_map = getattr(model, 'scale_offset', None)
     upsample_grids = {}
     common_conditions = set()
-    if label_fracs is None or label_fracs is 0:
+    if label_fracs is None or (isinstance(label_fracs, int) and label_fracs == 0):
         for i, batch in enumerate(progress(segloader, desc='label fracs')):
             seg, batch_label_counts, im, _ = segrunner.run_and_segment_batch(
                     batch, model, want_bincount=True, want_rgb=True)
@@ -956,8 +963,10 @@ def collect_cond_quantiles(outdir, model, segloader, segrunner):
             if layer not in conditional_quantiles:
                 conditional_quantiles[layer] = RunningConditionalQuantile(
                         resolution=2048)
+            # MPS workaround: 'border' padding is not supported on MPS for grid_sample.
+            padding_mode = 'zeros' if value.device.type == 'mps' else 'border'
             upsampled = torch.nn.functional.grid_sample(value,
-                    upsample_grids[layer], padding_mode='border').view(
+                    upsample_grids[layer], padding_mode=padding_mode).view(
                             value.shape[1], -1)
             conditional_quantiles[layer].add(('all',), upsampled.t())
             cpu_upsampled = None
@@ -1226,10 +1235,12 @@ def collect_covariance(outdir, model, segloader, segrunner):
                         scale_offset=scale_offset_map.get(key, None)
                             if scale_offset_map is not None else None,
                         dtype=value.dtype, device=value.device)
+            # MPS workaround: 'border' padding is not supported on MPS for grid_sample.
+            padding_mode = 'zeros' if value.device.type == 'mps' else 'border'
             upsampled = torch.nn.functional.grid_sample(value,
                     upsample_grids[key].expand(
                         (value.shape[0],) + upsample_grids[key].shape[1:]),
-                    padding_mode='border')
+                    padding_mode=padding_mode)
             if key not in cov:
                 cov[key] = RunningCrossCovariance()
             cov[key].add(upsampled, ohfeats)

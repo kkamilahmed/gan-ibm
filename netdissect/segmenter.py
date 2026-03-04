@@ -66,7 +66,8 @@ class UnifiedParsingSegmenter(BaseSegmenter):
         epoch = 40
         segmodel = load_unified_parsing_segmentation_model(
                 segarch, segvocab, epoch)
-        segmodel.cuda()
+        from netdissect.deviceutil import get_device
+        segmodel.to(get_device())
         self.segmodel = segmodel
         self.segsizes = segsizes
         self.segdiv = segdiv
@@ -149,15 +150,17 @@ class UnifiedParsingSegmenter(BaseSegmenter):
                    dtype=tensor_images.dtype, device=tensor_images.device
                    )[None,:,None,None]
         seg_shape = (y // downsample, x // downsample)
+        from netdissect.deviceutil import get_device
+        device = get_device()
         # We want these to be multiples of 32 for the model.
         sizes = [(s, s) for s in self.segsizes]
         pred = {category: torch.zeros(
             len(tensor_images), len(self.segmodel.labeldata[category]),
-            seg_shape[0], seg_shape[1]).cuda()
+            seg_shape[0], seg_shape[1]).to(device)
             for category in ['object', 'material']}
         part_pred = {partobj_index: torch.zeros(
             len(tensor_images), len(partindex),
-            seg_shape[0], seg_shape[1]).cuda()
+            seg_shape[0], seg_shape[1]).to(device)
             for partobj_index, partindex in enumerate(self.part_index)}
         for size in sizes:
             if size == tensor_images.shape[2:]:
@@ -251,7 +254,7 @@ class UnifiedParsingSegmenter(BaseSegmenter):
             else:
                 mask = torch.max(mask, mask2)
             result = result + (part_pred[i][:, local_index])
-        assert result is not 0, 'unrecognized class %d' % classnum
+        assert result != 0, 'unrecognized class %d' % classnum
         return result, mask
 
     def expand_segment_quad(self, segs, segdiv='quad'):
@@ -301,10 +304,12 @@ class SemanticSegmenter(BaseSegmenter):
         if segsizes is None:
             segsizes = getattr(segmodel.meta, 'segsizes', [256])
         self.segsizes = segsizes
+        from netdissect.deviceutil import get_device
+        device = get_device()
         # Verify segmentation model to has every out_channel labeled.
         assert len(segmodel.meta.labels) == list(c for c in segmodel.modules()
             if isinstance(c, torch.nn.Conv2d))[-1].out_channels
-        segmodel.cuda()
+        segmodel.to(device)
         self.segmodel = segmodel
         self.segdiv = segdiv
         # Image normalization
@@ -407,13 +412,15 @@ class SemanticSegmenter(BaseSegmenter):
         tensor_images = ((tensor_images + 1) / 2
                 ).sub_(self.imagemean[None,:,None,None].to(tensor_images.device)
                 ).div_(self.imagestd[None,:,None,None].to(tensor_images.device))
+        from netdissect.deviceutil import get_device
+        device = get_device()
         # Output shape can be downsampled.
         seg_shape = (y // downsample, x // downsample)
         # We want these to be multiples of 32 for the model.
         sizes = [(s, s) for s in self.segsizes]
         pred = torch.zeros(
             len(tensor_images), (self.num_underlying_classes),
-            seg_shape[0], seg_shape[1]).cuda()
+            seg_shape[0], seg_shape[1]).to(device)
         for size in sizes:
             if size == tensor_images.shape[2:]:
                 resized = tensor_images
@@ -558,9 +565,11 @@ def test_main():
     Test the unified segmenter.
     '''
     from PIL import Image
+    from netdissect.deviceutil import get_device
+    device = get_device()
     testim = Image.open('script/testdata/test_church_242.jpg')
     tensor_im = (torch.from_numpy(numpy.asarray(testim)).permute(2, 0, 1)
-            .float() / 255 * 2 - 1)[None, :, :, :].cuda()
+            .float() / 255 * 2 - 1)[None, :, :, :].to(device)
     segmenter = UnifiedParsingSegmenter()
     seg = segmenter.segment_batch(tensor_im)
     bc = torch.bincount(seg.view(-1))

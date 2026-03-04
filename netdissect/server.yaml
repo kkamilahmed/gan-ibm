@@ -204,7 +204,7 @@ definitions:
       interventions:
         type: array
         items:
-          - $ref: '#/definitions/Intervention'
+          $ref: '#/definitions/Intervention'
 
   FeatureRequest:
     type: object
@@ -226,11 +226,11 @@ definitions:
       masks:
         type: array
         items:
-          - $ref: '#/definitions/Mask'
+          $ref: '#/definitions/Mask'
       interventions:
         type: array
         items:
-          - $ref: '#/definitions/Intervention'
+          $ref: '#/definitions/Intervention'
 
   FeatureMapRequest:
     type: object
@@ -252,7 +252,7 @@ definitions:
       interventions:
         type: array
         items:
-          - $ref: '#/definitions/Intervention'
+          $ref: '#/definitions/Intervention'
 
   Intervention:
     type: object
@@ -264,7 +264,7 @@ definitions:
       ablations:
         type: array
         items:
-          - $ref: '#/definitions/Ablation'
+          $ref: '#/definitions/Ablation'
 
   Ablation:
     type: object

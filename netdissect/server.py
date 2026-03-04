@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+import werkzeug.datastructures
+import werkzeug
+werkzeug.FileStorage = werkzeug.datastructures.FileStorage
+
 import argparse, connexion, os, sys, yaml, json, socket
 from netdissect.easydict import EasyDict
 from flask import send_from_directory, redirect

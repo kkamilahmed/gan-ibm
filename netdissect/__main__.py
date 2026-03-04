@@ -156,9 +156,10 @@ def main():
         else:
             args.quantile_threshold = 0.005
 
-    # Set up CUDA
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
-    if args.cuda:
+    # Set up device
+    from netdissect.deviceutil import get_device, is_cuda_enabled
+    args.cuda = not args.no_cuda and (is_cuda_enabled() or torch.backends.mps.is_available())
+    if is_cuda_enabled():
         torch.backends.cudnn.benchmark = True
 
     # Construct the network with specified layers instrumented

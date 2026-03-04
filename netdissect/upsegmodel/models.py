@@ -267,8 +267,6 @@ class UPerNet(nn.Module):
     def __init__(self, nr_classes, fc_dim=4096,
                  use_softmax=False, pool_scales=(1, 2, 3, 6),
                  fpn_inplanes=(256,512,1024,2048), fpn_dim=256):
-        # Lazy import so that compilation isn't needed if not being used.
-        from .prroi_pool import PrRoIPool2D
         super(UPerNet, self).__init__()
         self.use_softmax = use_softmax
 
@@ -278,7 +276,10 @@ class UPerNet(nn.Module):
 
         for scale in pool_scales:
             # we use the feature map size instead of input image size, so down_scale = 1.0
-            self.ppm_pooling.append(PrRoIPool2D(scale, scale, 1.))
+            # Replacement for PrRoIPool2D which is CUDA-only.
+            # Since the rois used in forward cover the whole image,
+            # AdaptiveAvgPool2d(scale) is equivalent.
+            self.ppm_pooling.append(nn.AdaptiveAvgPool2d(scale))
             self.ppm_conv.append(nn.Sequential(
                 nn.Conv2d(fc_dim, 512, kernel_size=1, bias=False),
                 SynchronizedBatchNorm2d(512),
@@ -343,14 +344,15 @@ class UPerNet(nn.Module):
         conv5 = conv_out[-1]
         input_size = conv5.size()
         ppm_out = [conv5]
-        roi = [] # fake rois, just used for pooling
-        for i in range(input_size[0]): # batch size
-            roi.append(torch.Tensor([i, 0, 0, input_size[3], input_size[2]]).view(1, -1)) # b, x0, y0, x1, y1
-        roi = torch.cat(roi, dim=0).type_as(conv5)
-        ppm_out = [conv5]
         for pool_scale, pool_conv in zip(self.ppm_pooling, self.ppm_conv):
+            # MPS workaround: AdaptiveAvgPool2d fails on MPS if input is not divisible.
+            # Fallback to CPU for this operation.
+            if conv5.device.type == 'mps':
+                pooled = pool_scale(conv5.cpu()).to(conv5.device)
+            else:
+                pooled = pool_scale(conv5)
             ppm_out.append(pool_conv(F.interpolate(
-                pool_scale(conv5, roi.detach()),
+                pooled,
                 (input_size[2], input_size[3]),
                 mode='bilinear', align_corners=False)))
         ppm_out = torch.cat(ppm_out, 1)

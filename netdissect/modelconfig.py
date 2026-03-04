@@ -92,8 +92,8 @@ def create_instrumented_model(args, **kwargs):
     # Instrument the layers.
     model.retain_layers(args.layers)
     model.eval()
-    if args.cuda:
-        model.cuda()
+    from netdissect.deviceutil import get_device
+    model.to(get_device())
 
     # Annotate input, output, and feature shapes
     annotate_model_shapes(model,

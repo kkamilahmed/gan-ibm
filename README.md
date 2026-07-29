@@ -12,13 +12,6 @@ This installs `uv` if needed, downloads the precomputed `churchoutdoor` GAN
 and its dissection data, and starts the GANPaint server at
 [http://localhost:5001/client/ganpaint.html](http://localhost:5001/client/ganpaint.html).
 
-Already have the demo data on disk (e.g. from another machine)? Point
-`setup.sh` at the archive instead of downloading it:
-
-```bash
-./setup.sh /path/to/church_demo_data.tar.gz
-```
-
 ## Every other time
 
 ```bash

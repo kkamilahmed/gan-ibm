@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Starts the GANPaint editing server in the background and opens the demo.
+# Starts the GANPaint editing server and opens the demo. Stays attached in
+# the foreground -- press Ctrl+C to stop the server.
 # Safe to re-run: if it's already up, just opens the browser.
 
 set -e
@@ -49,3 +50,9 @@ fi
 
 echo "Opening ${URL}"
 open "${URL}" 2>/dev/null || echo "Open this manually: ${URL}"
+
+trap "$(dirname "${BASH_SOURCE[0]}")/stop_ganpaint.sh; exit 0" INT TERM
+echo "Press Ctrl+C to stop the server."
+while is_running; do
+    sleep 1
+done

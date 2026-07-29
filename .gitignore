@@ -24,3 +24,6 @@ client/demo/rankings_demo.json
 client/demo/rankings_demo_iou.json
 venv
 venv/
+/.run
+/.venv
+/client_react/node_modules

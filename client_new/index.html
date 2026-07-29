@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAN Dissection Editor</title>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #14161a;
+    --bg-elevated: #1c1f25;
+    --bg-card: #23262e;
+    --border: #33373f;
+    --text: #e8e9ec;
+    --text-dim: #9a9fa8;
+    --accent: #5b8cff;
+    --remove: #ff5b6e;
+    --copy: #35c98a;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --border: #e1e3e8;
+      --text: #1a1c20;
+      --text-dim: #666b74;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  body { display: flex; flex-direction: column; }
+
+  #topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 18px; background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  #topbar h1 {
+    font-size: 15px; font-weight: 600; margin: 0 8px 0 0; white-space: nowrap;
+  }
+  .field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); }
+  .field select, .field input[type=number] {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; font-size: 13px; width: 90px;
+  }
+  .field input[type=range] { width: 110px; }
+  #topbar .spacer { flex: 1; }
+  button.btn {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+  }
+  button.btn:hover { border-color: var(--accent); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+
+  #main { flex: 1; display: flex; min-height: 0; }
+
+  #gallery-pane { flex: 1; overflow-y: auto; padding: 16px; position: relative; }
+  #gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb, 160px), 1fr));
+    gap: 10px;
+  }
+  #gallery img {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  #loading-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.25);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(1px);
+  }
+  #loading-overlay.show { display: flex; }
+  .spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.25); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #sidebar {
+    width: 340px; flex-shrink: 0; border-left: 1px solid var(--border);
+    background: var(--bg-elevated); display: flex; flex-direction: column; min-height: 0;
+  }
+  #sidebar-head { padding: 12px 14px 8px; border-bottom: 1px solid var(--border); }
+  #sidebar-head .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  #search {
+    flex: 1; background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px;
+  }
+  #sort {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; font-size: 13px;
+  }
+  #active-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 0; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; padding: 3px 8px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border);
+  }
+  .chip.remove { background: rgba(255,91,110,0.15); border-color: var(--remove); color: var(--remove); }
+  .chip.copy { background: rgba(53,201,138,0.15); border-color: var(--copy); color: var(--copy); }
+  .chip .x { opacity: 0.7; }
+
+  #unit-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .unit-card {
+    display: flex; gap: 10px; align-items: center;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px; margin-bottom: 6px;
+  }
+  .unit-card img {
+    width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+    background: #000;
+  }
+  .unit-card .info { flex: 1; min-width: 0; }
+  .unit-card .label { font-size: 13px; font-weight: 600; text-transform: capitalize; }
+  .unit-card .meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .unit-card .iou-bar {
+    height: 3px; border-radius: 2px; background: var(--border); margin-top: 5px; overflow: hidden;
+  }
+  .unit-card .iou-bar > div { height: 100%; background: var(--accent); }
+  .unit-card .toggles { display: flex; flex-direction: column; gap: 4px; }
+  .unit-card .toggles button {
+    border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+    border-radius: 5px; font-size: 11px; padding: 3px 7px; cursor: pointer; white-space: nowrap;
+  }
+  .unit-card .toggles button.active.remove { background: var(--remove); border-color: var(--remove); color: white; }
+  .unit-card .toggles button.active.copy { background: var(--copy); border-color: var(--copy); color: white; }
+  .unit-card .toggles button:hover { border-color: var(--accent); }
+
+  #toast {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: #2a2d33; color: white; padding: 8px 16px; border-radius: 8px;
+    font-size: 13px; display: none; box-shadow: 0 4px 14px rgba(0,0,0,0.3); z-index: 50;
+  }
+  #hint { font-size: 12px; color: var(--text-dim); padding: 10px 14px; border-top: 1px solid var(--border); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>GAN Dissection Editor</h1>
+  <div class="field">project <select id="sel-project"></select></div>
+  <div class="field">layer <select id="sel-layer"></select></div>
+  <div class="field">images <input id="sel-count" type="number" min="1" max="200" value="24"></div>
+  <div class="field">size <input id="sel-zoom" type="range" min="80" max="320" value="160"></div>
+  <div class="field">opacity <input id="sel-opacity" type="range" min="0" max="100" value="100"></div>
+  <div class="spacer"></div>
+  <button class="btn" id="btn-reset">Reset edits</button>
+  <button class="btn primary" id="btn-shuffle">New random images</button>
+</div>
+
+<div id="main">
+  <div id="gallery-pane">
+    <div id="gallery"></div>
+    <div id="loading-overlay"><div class="spinner"></div></div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-head">
+      <div class="row">
+        <input id="search" type="text" placeholder="Filter units, e.g. window, sky...">
+        <select id="sort">
+          <option value="iou">Sort: best match</option>
+          <option value="unit">Sort: unit #</option>
+          <option value="label">Sort: label A-Z</option>
+        </select>
+      </div>
+      <div id="active-chips"></div>
+    </div>
+    <div id="unit-list"></div>
+    <div id="hint">
+      Each unit below is one internal neuron, matched to the visual concept it draws.
+      <b>Remove</b> forces it off everywhere; <b>Force</b> pushes it strongly on.
+      Toggle a few and watch the gallery update.
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:5001';
+
+const state = {
+  project: null,
+  layer: null,
+  layers: [],
+  units: [],        // [{unit, img, label, iou, level}]
+  interventions: new Map(), // unitIndex -> 'remove' | 'copy'
+  imageIds: [],
+  sort: 'iou',
+  filter: '',
+};
+
+const $ = sel => document.querySelector(sel);
+const galleryEl = $('#gallery');
+const unitListEl = $('#unit-list');
+const chipsEl = $('#active-chips');
+const loadingEl = $('#loading-overlay');
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast._h);
+  toast._h = setTimeout(() => t.style.display = 'none', 3500);
+}
+
+async function api(path, opts) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`${path} -> ${res.status}: ${body.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+function cleanLabel(raw) {
+  if (!raw) return '(uninterpretable)';
+  return raw.replace(/-[a-z]$/, '');
+}
+
+// ---------- init ----------
+
+async function init() {
+  let projects;
+  try {
+    projects = await api('/api/all_projects');
+  } catch (e) {
+    toast('Could not reach GAN server at ' + API + ' — is it running?');
+    return;
+  }
+  const projSel = $('#sel-project');
+  projSel.innerHTML = projects.map(p => `<option value="${p.project}">${p.project}</option>`).join('');
+  state.project = projects[0].project;
+  state.layers = projects[0].info.layers;
+
+  const layerSel = $('#sel-layer');
+  layerSel.innerHTML = state.layers.map(l => `<option value="${l}">${l}</option>`).join('');
+  state.layer = state.layers[0];
+
+  projSel.addEventListener('change', async () => {
+    state.project = projSel.value;
+    const p = projects.find(p => p.project === state.project);
+    state.layers = p.info.layers;
+    layerSel.innerHTML = state.layers.map(l => `<option value="${l}">${l}</option>`).join('');
+    state.layer = state.layers[0];
+    state.interventions.clear();
+    await loadLayer();
+  });
+  layerSel.addEventListener('change', async () => {
+    state.layer = layerSel.value;
+    state.interventions.clear();
+    await loadLayer();
+  });
+
+  await loadLayer();
+}
+
+async function loadLayer() {
+  renderChips();
+  unitListEl.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:13px;">Loading units...</div>';
+  const [unitsRes, rankRes, levelsRes] = await Promise.all([
+    api(`/api/units?project=${state.project}&layer=${state.layer}`),
+    api(`/api/rankings?project=${state.project}&layer=${state.layer}`),
+    api(`/api/levels?project=${state.project}&layer=${state.layer}&quantiles=0.99`),
+  ]);
+
+  const iouRanking = rankRes.res.find(r => r.name === 'max iou');
+  const iouScores = iouRanking ? iouRanking.scores : [];
+  const levels = levelsRes.res.map(l => l[0]);
+
+  state.units = unitsRes.res.map((u, i) => ({
+    unit: u.unit,
+    img: API + u.img,
+    label: u.label,
+    iou: iouScores[i] || 0,
+    level: levels[i] || 1,
+  }));
+
+  renderUnitList();
+  await regenerateImages(true);
+}
+
+// ---------- gallery ----------
+
+function newImageIds(count) {
+  const ids = [];
+  for (let i = 0; i < count; i++) ids.push(Math.floor(Math.random() * 5000));
+  return ids;
+}
+
+async function regenerateImages(freshIds) {
+  const count = Math.max(1, Math.min(200, +$('#sel-count').value || 24));
+  if (freshIds || state.imageIds.length !== count) {
+    state.imageIds = newImageIds(count);
+  }
+
+  loadingEl.classList.add('show');
+  try {
+    const ablations = [];
+    for (const [unitIdx, mode] of state.interventions.entries()) {
+      const u = state.units[unitIdx];
+      ablations.push({
+        layer: state.layer,
+        unit: u.unit,
+        alpha: 1,
+        value: mode === 'remove' ? 0 : u.level,
+      });
+    }
+    const body = {
+      project: state.project,
+      ids: state.imageIds,
+      return_urls: true,
+    };
+    if (ablations.length) {
+      body.interventions = [{ ablations }];
+    }
+    const result = await api('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    renderGallery(result.res.map(r => API + r.d));
+  } catch (e) {
+    toast('Image generation failed: ' + e.message);
+  } finally {
+    loadingEl.classList.remove('show');
+  }
+}
+
+function renderGallery(urls) {
+  galleryEl.innerHTML = urls.map(u => `<img src="${u}?t=${Date.now()}" loading="lazy">`).join('');
+}
+
+// ---------- units sidebar ----------
+
+function renderUnitList() {
+  const q = state.filter.trim().toLowerCase();
+  let list = state.units.filter(u =>
+    !q || cleanLabel(u.label).toLowerCase().includes(q) || String(u.unit).includes(q)
+  );
+
+  if (state.sort === 'iou') list = [...list].sort((a, b) => b.iou - a.iou);
+  else if (state.sort === 'unit') list = [...list].sort((a, b) => a.unit - b.unit);
+  else if (state.sort === 'label') list = [...list].sort((a, b) => cleanLabel(a.label).localeCompare(cleanLabel(b.label)));
+
+  unitListEl.innerHTML = list.map(u => {
+    const mode = state.interventions.get(u.unit);
+    const pct = Math.round(u.iou * 100);
+    return `
+      <div class="unit-card" data-unit="${u.unit}">
+        <img src="${u.img}" loading="lazy">
+        <div class="info">
+          <div class="label">${cleanLabel(u.label)} <span style="color:var(--text-dim);font-weight:400;">#${u.unit}</span></div>
+          <div class="meta">${pct}% IoU match</div>
+          <div class="iou-bar"><div style="width:${pct}%"></div></div>
+        </div>
+        <div class="toggles">
+          <button data-mode="remove" class="${mode === 'remove' ? 'active remove' : ''}">Remove</button>
+          <button data-mode="copy" class="${mode === 'copy' ? 'active copy' : ''}">Force</button>
+        </div>
+      </div>
+    `;
+  }).join('') || '<div style="padding:16px;color:var(--text-dim);font-size:13px;">No units match.</div>';
+}
+
+unitListEl.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-mode]');
+  if (!btn) return;
+  const card = e.target.closest('.unit-card');
+  const unitIdx = +card.dataset.unit;
+  const mode = btn.dataset.mode;
+  const current = state.interventions.get(unitIdx);
+  if (current === mode) state.interventions.delete(unitIdx);
+  else state.interventions.set(unitIdx, mode);
+  renderUnitList();
+  renderChips();
+  debouncedRegenerate();
+});
+
+function renderChips() {
+  const chips = [...state.interventions.entries()].map(([unitIdx, mode]) => {
+    const u = state.units.find(u => u.unit === unitIdx);
+    const label = u ? cleanLabel(u.label) : unitIdx;
+    return `<span class="chip ${mode}" data-unit="${unitIdx}">${mode === 'remove' ? '−' : '+'} ${label} #${unitIdx} <span class="x">✕</span></span>`;
+  });
+  chipsEl.innerHTML = chips.join('');
+}
+
+chipsEl.addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  state.interventions.delete(+chip.dataset.unit);
+  renderUnitList();
+  renderChips();
+  debouncedRegenerate();
+});
+
+let debounceTimer;
+function debouncedRegenerate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => regenerateImages(false), 250);
+}
+
+// ---------- controls ----------
+
+$('#search').addEventListener('input', e => {
+  state.filter = e.target.value;
+  renderUnitList();
+});
+$('#sort').addEventListener('change', e => {
+  state.sort = e.target.value;
+  renderUnitList();
+});
+$('#sel-zoom').addEventListener('input', e => {
+  document.documentElement.style.setProperty('--thumb', e.target.value + 'px');
+});
+$('#sel-opacity').addEventListener('input', e => {
+  galleryEl.style.opacity = e.target.value / 100;
+});
+$('#sel-count').addEventListener('change', () => regenerateImages(true));
+$('#btn-shuffle').addEventListener('click', () => regenerateImages(true));
+$('#btn-reset').addEventListener('click', () => {
+  state.interventions.clear();
+  renderUnitList();
+  renderChips();
+  regenerateImages(false);
+});
+
+init();
+</script>
+</body>
+</html>

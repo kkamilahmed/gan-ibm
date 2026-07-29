@@ -1,0 +1,242 @@
+/* Visual reskin only -- no functional/DOM changes.
+   Loaded after ganpaint.css so these rules win by source order. */
+
+:root {
+  --primary: #004ccd;
+  --primary-container: #0f62fe;
+  --on-primary: #ffffff;
+  --on-primary-container: #f3f3ff;
+  --surface: #fcf9f8;
+  --surface-container: #f0edec;
+  --surface-container-low: #f6f3f2;
+  --surface-container-high: #eae7e7;
+  --surface-variant: #e5e2e1;
+  --outline: #737687;
+  --outline-variant: #c3c6d8;
+  --on-surface: #1c1b1b;
+  --on-surface-variant: #424656;
+  --secondary: #5f5e5e;
+  --remove: #ba1a1a;
+  --remove-container: #ffdad6;
+}
+
+body {
+  background-color: var(--surface-container-low) !important;
+  color: var(--on-surface) !important;
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif !important;
+  font-weight: 400 !important;
+}
+
+a {
+  color: var(--primary) !important;
+}
+
+/* --- top bar --- */
+.navbar {
+  background-color: var(--surface) !important;
+  color: var(--on-surface) !important;
+  border-bottom: 1px solid var(--outline-variant);
+  height: 52px !important;
+}
+.navbarContent {
+  margin: 14px 20px !important;
+}
+.navbarTitle {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px;
+}
+.navbarContent span:not(.navbarTitle) {
+  color: var(--on-surface-variant) !important;
+  font-weight: 400;
+}
+
+.main_frame {
+  top: 52px !important;
+  color: var(--on-surface) !important;
+}
+
+/* --- panels --- */
+.floating_content {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  padding: 20px !important;
+  margin-bottom: 12px;
+}
+.floating_content.expert[style*="display: none"] {
+  display: none !important;
+}
+
+/* --- left sidebar: brush palette + controls, pulled out of normal flow --- */
+@media (min-width: 860px) {
+  .sidebar-panel {
+    position: fixed !important;
+    left: 0;
+    top: 108px; /* below the caption block */
+    bottom: 0;
+    height: auto !important;
+    width: 240px;
+    box-sizing: border-box;
+    display: block !important;
+    vertical-align: initial !important;
+    overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--outline-variant);
+    padding: 16px 20px;
+    text-align: left;
+    z-index: 10;
+  }
+  .sidebar-panel > div:first-child {
+    height: auto !important;
+    max-height: 42vh;
+    overflow-y: auto !important;
+    margin: 0 -20px;
+    padding: 0 20px;
+  }
+  .sidebar-panel .btn_group {
+    margin-top: 16px !important;
+  }
+  .sidebar-caption {
+    position: fixed !important;
+    left: 0;
+    top: 52px;
+    width: 240px;
+    box-sizing: border-box;
+    padding: 20px !important;
+    margin: 0 !important;
+    background: var(--surface);
+    border-right: 1px solid var(--outline-variant);
+    border-bottom: 1px solid var(--outline-variant);
+    z-index: 11;
+  }
+  .container {
+    width: auto !important;
+    max-width: 900px !important;
+    margin: 0 !important;
+    padding: 32px !important;
+    padding-left: calc(240px + 32px) !important;
+    box-sizing: content-box;
+  }
+}
+
+.intro_text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--secondary) !important;
+  padding: 0 0 12px 0 !important;
+}
+
+/* --- semantic brush list (#shortcuts .short) --- */
+#shortcuts {
+  text-align: left;
+  width: 160px;
+}
+.short {
+  padding: 0 !important;
+  margin-bottom: 2px;
+}
+.short button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--on-surface) !important;
+  background: transparent !important;
+  padding: 10px 14px !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: 0 !important;
+  border-left: 3px solid transparent !important;
+}
+.short button:hover {
+  background: var(--surface-variant) !important;
+}
+.short button.selected {
+  background: var(--primary-container) !important;
+  color: var(--on-primary) !important;
+  border-left: 3px solid var(--primary) !important;
+}
+
+/* --- draw / remove / intensity / undo / reset buttons --- */
+.divbtn {
+  background: var(--surface) !important;
+  color: var(--on-surface) !important;
+  border: 1px solid var(--outline) !important;
+  padding: 6px 14px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: 0 !important;
+}
+.divbtn:hover {
+  background: var(--surface-variant) !important;
+}
+.divbtn.selected {
+  background: var(--primary) !important;
+  color: var(--on-primary) !important;
+  border-color: var(--primary) !important;
+}
+/* the "remove" action specifically reads as destructive when selected */
+.btn_action.btn_right.selected {
+  background: var(--remove) !important;
+  border-color: var(--remove) !important;
+}
+.btn_left {
+  border-radius: 0 !important;
+}
+.btn_right {
+  border-radius: 0 !important;
+  border-left: none !important;
+}
+.btn_group.demo {
+  margin-top: 8px !important;
+}
+.divbtn.simple {
+  border-radius: 0 !important;
+}
+
+/* --- canvas frame --- */
+.GanPaintView {
+  border: 1px solid var(--outline-variant) !important;
+  background: var(--surface-container);
+}
+
+/* --- gallery thumbnails --- */
+.image_list img {
+  height: 56px !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--outline-variant) !important;
+  opacity: 0.85;
+}
+.image_list img:hover {
+  border: 2px solid var(--primary) !important;
+  opacity: 1;
+}
+
+/* --- history list (expert mode) --- */
+.history_entry {
+  color: var(--on-surface) !important;
+}
+.history_entry button {
+  color: var(--on-surface-variant) !important;
+}
+.history_entry button:hover {
+  background: var(--surface-variant) !important;
+}
+.history_entry img {
+  border: 1px solid var(--outline-variant) !important;
+}
+.history_entry span {
+  color: var(--on-surface) !important;
+}
+
+/* --- selects (expert mode) --- */
+select.custom-select {
+  border: 1px solid var(--outline) !important;
+  color: var(--on-surface) !important;
+}

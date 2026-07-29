@@ -1,0 +1,44 @@
+[project]
+name = "netdissect"
+version = "0.0.2"
+description = "Network Dissection"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "David Bau", email = "davidbau@csail.mit.edu" }]
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.14.5",
+    "Pillow>=4.1.0",
+    "scipy>=1.1.0",
+    "scikit-image>=0.14.0",
+    "matplotlib",
+    "tqdm>=4.23.4",
+]
+
+[project.optional-dependencies]
+server = [
+    "connexion[swagger-ui]>=2.14,<3",
+    "flask-cors",
+    "pyyaml>=3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/davidbau/quick-netdissect"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["netdissect"]
+
+[tool.setuptools.package-data]
+netdissect = ["dissect.html", "edit.html"]

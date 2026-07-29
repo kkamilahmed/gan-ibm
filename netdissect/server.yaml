@@ -200,7 +200,7 @@ definitions:
         items:
           type: integer
       return_urls:
-        type: integer
+        description: accepts a boolean or 0/1 (client callers use both forms)
       interventions:
         type: array
         items:

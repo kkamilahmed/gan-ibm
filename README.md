@@ -54,7 +54,13 @@ Clone the repo and run:
 This installs `uv` if needed, downloads the precomputed `churchoutdoor` GAN
 and its dissection data, and starts the GANPaint server at
 [http://localhost:5001/client/ganpaint.html](http://localhost:5001/client/ganpaint.html).
-Stop it with `./stop.sh`.
+
+`setup.sh` only needs to run once, to fetch the data. After that, just use:
+
+```bash
+./start.sh   # start the server
+./stop.sh    # stop it
+```
 
 Already have the demo data on disk (e.g. from another machine)? Point
 `setup.sh` at the archive instead of downloading it:

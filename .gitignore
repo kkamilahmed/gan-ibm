@@ -12,6 +12,7 @@
 /notebooks/dataset
 /notebooks/dissect
 /notebooks/models
+*.tar.gz
 __pycache__
 .DS_Store
 .__*

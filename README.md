@@ -42,31 +42,26 @@ v 0.9 alpha  - Nov 26,  2018 <br>
 
 
 ## Getting Started
-Let's set up the environment and dissect a `churchoutdoor` GAN. This requires some CUDA-enabled GPU and some disk space.
 
 ### Setup
 
-To install everything needed from this repo, have `conda` available,
-and run:
+Clone the repo and run:
 
-```
-script/setup_env.sh      # Create a conda environment with dependencies
-script/make_dirs.sh      # Create the dataset and dissect directories
-script/download_data.sh  # Download support data and demo GANs
-source activate netd     # Enter the conda environment
-pip install -v -e .      # Link the local netdissect package into the env
+```bash
+./setup.sh
 ```
 
-Details.  The code depends on python 3, Pytorch 4.1, and several other
-packages.  For conda users, `script/environment.yml` provides the details
-of the dependencies.  For pip users, `setup.py` lists everything needed.
+This installs `uv` if needed, downloads the precomputed `churchoutdoor` GAN
+and its dissection data, and starts the GANPaint server at
+[http://localhost:5001/client/ganpaint.html](http://localhost:5001/client/ganpaint.html).
+Stop it with `./stop.sh`.
 
-Data.  The `download_data.sh` script downloads the segmentation dataset
-used to dissect classifiers, the segmentation network used to dissect GANs,
-and several example GAN models to dissect.  The downloads will go into
-the directories `dataset/` and `models/`.  If you do not wish to download
-the example networks, `python -m netdissect --download` will download
-just the data and models needed for netdissect itself.
+Already have the demo data on disk (e.g. from another machine)? Point
+`setup.sh` at the archive instead of downloading it:
+
+```bash
+./setup.sh /path/to/church_demo_data.tar.gz
+```
 
 
 ### Dissecting a GAN
@@ -98,7 +93,9 @@ can be substituted by supplying an alternate class constructor to
 
 
 Once a GAN is dissected, you can run a web server that provides an API
-that generates images with (optional) interventions.
+that generates images with (optional) interventions. `./start.sh` (see
+[Getting Started](#getting-started)) wraps this for the `churchoutdoor`
+demo; to run it directly against your own dissection output:
 
 ```
 python -m netdissect.server --address 0.0.0.0
